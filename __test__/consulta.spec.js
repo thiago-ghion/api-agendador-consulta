@@ -1,5 +1,6 @@
 const apoioTeste = require('./apoioTeste');
 const db = require('../models/index.js');
+const moment = require('moment');
 
 let mockListaPaciente = null;
 let mockPaciente = null;
@@ -900,7 +901,7 @@ test('Cancelamento da consulta - próprio paciente', async () => {
   mockConsulta = new Promise((resolve, reject) => {
     resolve({
       indicadorConsultaCancelada: 'N',
-      dataVinculo: '02.05.2022',
+      dataVinculo: '2022-05-02',
       update: jest.fn(),
     });
   });
@@ -944,7 +945,7 @@ test('Cancelamento da consulta - colaborador não administrador', async () => {
   mockConsulta = new Promise((resolve, reject) => {
     resolve({
       indicadorConsultaCancelada: 'N',
-      dataVinculo: '02.05.2022',
+      dataVinculo: '2022-05-02',
       update: jest.fn(),
     });
   });
@@ -988,7 +989,7 @@ test('Cancelamento da consulta - colaborador administrador', async () => {
   mockConsulta = new Promise((resolve, reject) => {
     resolve({
       indicadorConsultaCancelada: 'N',
-      dataVinculo: '02.05.2022',
+      dataVinculo: '2022-05-02',
       update: jest.fn(),
     });
   });
@@ -1465,4 +1466,81 @@ describe('Parte comum', () => {
     expect(app.get).toHaveBeenCalled();
     expect(app.post).toHaveBeenCalled();
   });
+});
+
+describe('podeCancelarConsulta', () => {
+  test('Data consulta inferior a data atual, consulta não cancelada', () => {
+    const consulta = require('../api/consulta.js');
+
+    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');;
+    const horario = '08:00';
+    const indicadorConsultaCancelada = 'N';
+
+    expect(
+      consulta.podeCancelarConsulta(
+        dataConsulta,
+        horario,
+        indicadorConsultaCancelada
+      )
+    ).toBe('N');
+  });
+
+  test('Data consulta inferior a data atual, consulta cancelada', () => {
+    const consulta = require('../api/consulta.js');
+
+    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');;
+    const horario = '08:00';
+    const indicadorConsultaCancelada = 'N';
+
+    expect(
+      consulta.podeCancelarConsulta(
+        dataConsulta,
+        horario,
+        indicadorConsultaCancelada
+      )
+    ).toBe('N');
+  });
+
+  test('Data consulta superior a data atual, consulta não cancelada', () => {
+    const consulta = require('../api/consulta.js');
+
+    const dataConsulta = moment().add(1, 'day').format('DD.MM.YYYY');
+    const horario = '08:00';
+    const indicadorConsultaCancelada = 'N';
+
+    console.log('dataConsulta', dataConsulta);
+    console.log('horario', horario);
+    console.log('indicadorConsultaCancelada', indicadorConsultaCancelada);
+
+
+    expect(
+      consulta.podeCancelarConsulta(
+        dataConsulta,
+        horario,
+        indicadorConsultaCancelada
+      )
+    ).toBe('S');
+  });
+
+  test('Data consulta superior a data atual, consulta cancelada', () => {
+    const consulta = require('../api/consulta.js');
+
+    const dataConsulta = moment().add(1, 'day').format('DD.MM.YYYY');
+    const horario = '08:00';
+    const indicadorConsultaCancelada = 'S';
+
+    console.log('dataConsulta', dataConsulta);
+    console.log('horario', horario);
+    console.log('indicadorConsultaCancelada', indicadorConsultaCancelada);
+
+
+    expect(
+      consulta.podeCancelarConsulta(
+        dataConsulta,
+        horario,
+        indicadorConsultaCancelada
+      )
+    ).toBe('N');
+  });
+
 });

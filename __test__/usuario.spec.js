@@ -488,3 +488,136 @@ describe('Método resetarSenha', () => {
     expect(res.status).toHaveBeenLastCalledWith(400);
   });
 });
+
+describe('alterar', () => {
+  test('Alteração falhou, requisicao inválida', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        idUsuario: 1,
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve(null);
+    });
+    await usuario.alterar(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Alteração falhou, não foi encontrado o usuário', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        idUsuario: 1,
+        nomeColaborador: 'Teste',
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve(null);
+    });
+    await usuario.alterar(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Alteração com sucesso', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        idUsuario: 1,
+        nomeColaborador: 'Teste',
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve({ update: jest.fn() });
+    });
+    await usuario.alterar(req, res);
+
+    expect(res.status).not.toHaveBeenLastCalledWith(400);
+  });
+});
+
+describe('registrar', () => {
+  test('Registro falhou, requisição inválida', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve(null);
+    });
+    await usuario.registrar(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Registro falhou, usuário já existe inválida', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        nomeUsuario: 'teste',
+        nomeColaborador: 'Teste',
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve({});
+    });
+    await usuario.registrar(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Registro com sucesso', async () => {
+    const usuario = require('../api/usuario.js');
+    const req = {
+      body: {
+        nomeUsuario: 'teste',
+        nomeColaborador: 'Teste',
+        senha: 'ABcde12#',
+        isUsuarioAdministrador: 'S',
+      },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockColaborador = new Promise((resolve) => {
+      resolve(null);
+    });
+    await usuario.registrar(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(201);
+  });
+});

@@ -11,6 +11,90 @@ const TIPO_ACESSO_PACIENTE_EXTERNO = 2;
 const TIPO_ACESSO_COLABORADOR = 3;
 
 function registrarMetodos(app, incluirNivelAccesso, passport) {
+  const login = (req, res) => {
+    req.body.tipoLogin = 1;
+    passport.authenticate('local', { session: false }, (err, user, info) => {
+      if (err || !user) {
+        return res.status(400).send({
+          mensagem: err.message,
+        });
+      }
+      req.login(user, { session: false }, (err) => {
+        if (err) {
+          res.send(err);
+        }
+
+        const token = gerarJWT(user, res);
+        return res.send(token);
+      });
+    })(req, res);
+  };
+
+  const localLogin = async (req, _usuario, senha, done) => {
+    const usuario = _usuario.toLocaleLowerCase();
+
+    if (req.body.tipoLogin !== 1 && req.body.tipoLogin !== 2) {
+      return done({ mensagem: 'Tipo de autenticação não esperado' }, null, {});
+    }
+
+    if (req.body.tipoLogin === 2) {
+      logger.info(`Autenticando usuário local ${usuario}`);
+      try {
+        const colaborador = await db.Colaborador.findOne({
+          where: { nomeUsuario: usuario },
+        });
+
+        if (colaborador === null) {
+          logger.info(`Usuário/Senha inválido - usuário local ${usuario}`);
+          return done({ mensagem: 'Usuário/Senha inválido' }, null, {});
+        }
+
+        if (
+          colaborador.textoSenha === senha &&
+          colaborador.indicadorAtivo === 'S'
+        ) {
+          logger.info(`Registrando o acesso - usuário local ${usuario}`);
+          await db.RegistroAcesso.create({
+            timestampAcesso: db.sequelize.literal('CURRENT_TIMESTAMP'),
+            tipoAcesso: TIPO_ACESSO_COLABORADOR,
+            credencialAcesso: usuario,
+          });
+
+          if (colaborador.indicadorForcarTrocaSenha === 'S') {
+            return done(
+              {
+                mensagem: 'Usuário deve trocar a senha antes de prosseguir',
+                senhaResetada: true,
+              },
+              null,
+              {}
+            );
+          }
+
+          return done(
+            null,
+            {
+              id: colaborador.idColaborador,
+              usuario: colaborador.nomeUsuario,
+              nome: colaborador.nomeColaborador,
+              nivelUsuario: colaborador.indicadorAdministrador === 'S' ? 3 : 2,
+            },
+            {}
+          );
+        } else {
+          return done({ mensagem: 'Usuário/Senha inválido' }, null, {});
+        }
+      } catch (error) {
+        logger.error(`Erro na autenticação do usuário local`, error);
+        return done(
+          { mensagem: 'Falha na consulta da autenticação' },
+          null,
+          {}
+        );
+      }
+    }
+  };
+
   const LocalStrategy = require('passport-local').Strategy;
   passport.use(
     new LocalStrategy(
@@ -19,80 +103,29 @@ function registrarMetodos(app, incluirNivelAccesso, passport) {
         passwordField: 'senha',
         passReqToCallback: true,
       },
-      async (req, _usuario, senha, done) => {
-        const usuario = _usuario.toLocaleLowerCase();
-
-        if (req.body.tipoLogin !== 1 && req.body.tipoLogin !== 2) {
-          return done(
-            { mensagem: 'Tipo de autenticação não esperado' },
-            null,
-            {}
-          );
-        }
-
-        if (req.body.tipoLogin === 2) {
-          logger.info(`Autenticando usuário local ${usuario}`);
-          try {
-            const colaborador = await db.Colaborador.findOne({
-              where: { nomeUsuario: usuario },
-            });
-
-            console.log('colaborador', colaborador);
-            if (colaborador === null) {
-              logger.info(`Usuário/Senha inválido - usuário local ${usuario}`);
-              return done({ mensagem: 'Usuário/Senha inválido' }, null, {});
-            }
-
-            if (
-              colaborador.textoSenha === senha &&
-              colaborador.indicadorAtivo === 'S'
-            ) {
-              logger.info(`Registrando o acesso - usuário local ${usuario}`);
-              await db.RegistroAcesso.create({
-                timestampAcesso: db.sequelize.literal('CURRENT_TIMESTAMP'),
-                tipoAcesso: TIPO_ACESSO_COLABORADOR,
-                credencialAcesso: usuario,
-              });
-
-              if (colaborador.indicadorForcarTrocaSenha === 'S') {
-                return done(
-                  {
-                    mensagem: 'Usuário deve trocar a senha antes de prosseguir',
-                    senhaResetada: true,
-                  },
-                  null,
-                  {}
-                );
-              }
-
-              return done(
-                null,
-                {
-                  id: colaborador.idColaborador,
-                  usuario: colaborador.nomeUsuario,
-                  nome: colaborador.nomeColaborador,
-                  nivelUsuario:
-                    colaborador.indicadorAdministrador === 'S' ? 3 : 2,
-                },
-                {}
-              );
-            } else {
-              console.log(`${colaborador.textoSenha} === ${senha} &&
-                ${colaborador.indicadorAtivo} === 'S'`);
-              return done({ mensagem: 'Usuário/Senha inválido' }, null, {});
-            }
-          } catch (error) {
-            logger.error(`Erro na autenticação do usuário local`, error);
-            return done(
-              { mensagem: 'Falha na consulta da autenticação' },
-              null,
-              {}
-            );
-          }
-        }
-      }
+      localLogin
     )
   );
+
+  const validaJWT = (req, jwtPayload, done) => {
+    try {
+      const nivelUsuarioEndpoint = req.nivelUsuarioEndpoint || 99;
+
+      if (jwtPayload.nivelUsuario < nivelUsuarioEndpoint) {
+        logger.info(
+          `Usuário não tem acesso para o recurso - ${req.url} - nivelUsuario:${jwtPayload.nivelUsuario} nivelUsuarioEndpoint:${req.nivelUsuarioEndpoint}`,
+          jwtPayload
+        );
+        return done(
+          { mensagem: 'Usuário não possui acesso a funcionalidade' },
+          null
+        );
+      }
+      return done(null, jwtPayload);
+    } catch (error) {
+      logger.error('Erro na validação do Token JWT', error);
+    }
+  };
 
   const passportJWT = require('passport-jwt');
   const JWTStrategy = passportJWT.Strategy;
@@ -105,52 +138,18 @@ function registrarMetodos(app, incluirNivelAccesso, passport) {
         secretOrKey: SECRET,
         passReqToCallback: true,
       },
-      function (req, jwtPayload, done) {
-        try {
-          const nivelUsuarioEndpoint = req.nivelUsuarioEndpoint || 99;
-
-          if (jwtPayload.nivelUsuario < nivelUsuarioEndpoint) {
-            logger.info(
-              `Usuário não tem acesso para o recurso - ${req.url} - nivelUsuario:${jwtPayload.nivelUsuario} nivelUsuarioEndpoint:${req.nivelUsuarioEndpoint}`,
-              jwtPayload
-            );
-            return done(
-              { mensagem: 'Usuário não possui acesso a funcionalidade' },
-              null
-            );
-          }
-          return done(null, jwtPayload);
-        } catch (error) {
-          logger.error('Erro na validação do Token JWT', error);
-        }
-      }
+      validaJWT
     )
   );
 
-  app.post(`/v1/${grupoApi}/login`, (req, res) => {
-    req.body.tipoLogin = 1;
-    passport.authenticate('local', { session: false }, (err, user, info) => {
-      if (err || !user) {
-        return res.status(400).json({
-          mensagem: err.message,
-        });
-      }
-      req.login(user, { session: false }, (err) => {
-        if (err) {
-          res.send(err);
-        }
-
-        const token = gerarJWT(user, res);
-        return res.json(token);
-      });
-    })(req, res);
+  const loginURL = `/v1/${grupoApi}/login`;
+  app.post(loginURL, (req, res) => {
+    login(req, res);
   });
-
-  app.post(`/v1/${grupoApi}/loginColaborador`, (req, res) => {
+  const loginColaborador = (req, res) => {
     req.body.tipoLogin = 2;
     passport.authenticate('local', { session: false }, (err, user, info) => {
       if (err || !user) {
-        console.log('err', err);
         if (err.senhaResetada !== undefined) {
           return res.status(400).send({
             mensagem: err.mensagem,
@@ -167,9 +166,13 @@ function registrarMetodos(app, incluirNivelAccesso, passport) {
         }
 
         const token = gerarJWT(user, res);
-        return res.json(token);
+        return res.send(token);
       });
     })(req, res);
+  };
+
+  app.post(`/v1/${grupoApi}/loginColaborador`, (req, res) => {
+    loginColaborador(req, res);
   });
 
   app.post(`/v1/${grupoApi}/trocarSenhaPaciente`, (req, res) => {
@@ -205,6 +208,8 @@ function registrarMetodos(app, incluirNivelAccesso, passport) {
   app.get(listaAcessoURL, (req, res) => {
     listarRegistroAcesso(req, res);
   });
+
+  return { login, localLogin, validaJWT, loginColaborador };
 }
 
 const introspect = (req, res) => {
@@ -357,7 +362,6 @@ function callbackGoogle(req, res) {
 
 const listarRegistroAcesso = async (req, res) => {
   try {
-    console.log('req', req.query);
     if (req.query.dataInicio === undefined || req.query.dataInicio === 'null') {
       res
         .status(400)
@@ -374,11 +378,9 @@ const listarRegistroAcesso = async (req, res) => {
 
     try {
       if (Util.quantidadeDias(req.query.dataInicio, req.query.dataFim) > 30) {
-        res
-          .status(400)
-          .send({
-            mensagem: 'Consulta deve ter o intervalo máximo de 30 dias',
-          });
+        res.status(400).send({
+          mensagem: 'Consulta deve ter o intervalo máximo de 30 dias',
+        });
         return;
       }
     } catch (error) {
@@ -388,18 +390,18 @@ const listarRegistroAcesso = async (req, res) => {
 
     const lista = await db.sequelize.query(
       `
-      SELECT  A."timestampAcesso" , 
+      SELECT  A."timestampAcesso", 
               A."tipoAcesso" , 
               B."textoTipoAcesso", 
               A."credencialAcesso" 
       FROM "RegistroAcesso" A, 
            "TipoAcesso" B
-      WHERE A."timestampAcesso" BETWEEN timestamp '${Util.converterEmDataInvertida(
+      WHERE A."timestampAcesso" BETWEEN '${Util.converterEmDataInvertida(
         req.query.dataInicio
-      )} 00:00:00' 
-      AND      timestamp '${Util.converterEmDataInvertida(
+      )}T00:00:00.000-03:00' 
+      AND  '${Util.converterEmDataInvertida(
         req.query.dataFim
-      )} 23:59:59'
+      )}T23:59:59.999-03:00'
       AND   A."tipoAcesso"  = B."tipoAcesso"
       `,
       { type: db.sequelize.QueryTypes.SELECT }
@@ -412,4 +414,10 @@ const listarRegistroAcesso = async (req, res) => {
   }
 };
 
-module.exports = { registrarMetodos };
+module.exports = {
+  registrarMetodos,
+  gerarJWT,
+  introspect,
+  listarRegistroAcesso,
+  trocarSenhaColaborador,
+};

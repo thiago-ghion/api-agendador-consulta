@@ -3,12 +3,19 @@ const db = require('.././models/index.js');
 const _ = require('underscore');
 const Util = require('../util/Util');
 const logger = require('../util/logger');
+const Op = db.Sequelize.Op;
 
 const registrarMetodos = (app, incluirNivelAccesso) => {
   const listarURL = `/v1/${grupoApi}/listar`;
   incluirNivelAccesso(listarURL, 2);
   app.get(listarURL, (req, res) => {
     listarTodos(req, res);
+  });
+
+  const listarParcialURL = `/v1/${grupoApi}/listarParcial`;
+  incluirNivelAccesso(listarParcialURL, 2);
+  app.get(listarParcialURL, (req, res) => {
+    listarParcial(req, res);
   });
 
   const consultarURL = `/v1/${grupoApi}/consultar`;
@@ -33,6 +40,27 @@ const registrarMetodos = (app, incluirNivelAccesso) => {
 const listarTodos = async (req, res) => {
   try {
     const lista = await db.Paciente.findAll();
+
+    const resposta = _(lista).map((item) => ({
+      idPaciente: item.idPaciente,
+      nomePaciente: item.nomePaciente,
+    }));
+
+    res.send(resposta);
+  } catch (error) {
+    logger.error('Falha na lista de pacientes', error);
+    res
+      .status(400)
+      .send({ mensagem: 'Falha na consulta da lista de pacientes' });
+  }
+};
+
+const listarParcial = async (req, res) => {
+  try {
+    const lista = await db.Paciente.findAll({
+      limit: 10,
+      where: { nomePaciente: { [Op.iLike]: `${req.query.nomeParcial}%` } },
+    });
 
     const resposta = _(lista).map((item) => ({
       idPaciente: item.idPaciente,
@@ -171,7 +199,6 @@ const validarPaciente = (req, res) => {
       return false;
     }
   } catch (error) {
-    console.log('error', error);
     res
       .status(400)
       .send({ mensagem: 'Falha validação do registro do paciente' });
@@ -187,7 +214,7 @@ const registrar = async (req, res) => {
       return false;
     }
 
-    if (req.body.enderecoEmail !== undefined) {
+    if (req.body.enderecoEmail !== undefined && req.body.enderecoEmail !== '') {
       const paciente = await db.Paciente.findOne({
         where: {
           enderecoEmail: Util.formatarMinusculo(req.body.enderecoEmail),
@@ -355,4 +382,12 @@ const alterar = async (req, res) => {
   }
 };
 
-module.exports = { registrarMetodos, listarTodos, consultar };
+module.exports = {
+  registrarMetodos,
+  listarTodos,
+  consultar,
+  listarParcial,
+  validarPaciente,
+  registrar,
+  alterar,
+};

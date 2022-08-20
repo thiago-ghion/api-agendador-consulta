@@ -1,5 +1,6 @@
 let mockListaHorario = null;
 let mockRegistroHorario = null;
+let mockQuery = null;
 
 const apoioTeste = require('./apoioTeste');
 
@@ -9,6 +10,15 @@ jest.mock('../models/index.js', () => ({
       return funcao();
     },
     literal: () => '',
+    query: (sql) => {
+      if (typeof mockQuery === 'function') {
+        return mockQuery(sql);
+      }
+      return mockQuery;
+    },
+    QueryTypes: {
+      SELECT: '',
+    },
   },
   Horario: {
     findAll: () => {
@@ -31,6 +41,12 @@ jest.mock('../models/index.js', () => ({
     },
   },
 }));
+
+beforeEach(() => {
+  mockListaHorario = null;
+  mockRegistroHorario = null;
+  mockQuery = null;
+});
 
 test('Listar URL - lista vazia', async () => {
   const horario = require('../api/horario.js');
@@ -342,4 +358,48 @@ test('Registrar método', () => {
 
   expect(app.get).toHaveBeenCalled();
   expect(app.post).toHaveBeenCalled();
+});
+
+describe('manutencaoSituacao', () => {
+  test('Horário possui profissional vinculado, não pode ser desativado', async () => {
+    const horario = require('../api/horario.js');
+
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockRegistroHorario = new Promise((resolve) => {
+      resolve({ indicadorAtivo: 'S' });
+    });
+
+    mockQuery = new Promise((resolve) => {
+      resolve([{}]);
+    });
+
+    const req = { params: { idHorario: 1 } };
+    await horario.manutencaoSituacao('N', req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Horário não possui profissional vinculado, pode ser desativado', async () => {
+    const horario = require('../api/horario.js');
+
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    mockRegistroHorario = new Promise((resolve) => {
+      resolve({ indicadorAtivo: 'S', update: jest.fn() });
+    });
+
+    mockQuery = new Promise((resolve) => {
+      resolve([]);
+    });
+
+    const req = { params: { idHorario: 1 } };
+    await horario.manutencaoSituacao('N', req, res);
+
+    expect(res.status).not.toHaveBeenLastCalledWith(400);
+  });
 });

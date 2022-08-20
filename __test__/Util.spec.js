@@ -108,13 +108,13 @@ test('Formatar nulidade', () => {
 
 test('É data anterior', () => {
   expect(
-    Util.isDataAnterior('02.03.2022 08:00', '02.03.2022 07:59')
+    Util.isDataAnterior('2022-03-02 08:00', '02.03.2022 07:59')
   ).toBeTruthy();
 });
 
 test('É a mesma data', () => {
   expect(
-    Util.isDataAnterior('02.03.2022 08:00', '02.03.2022 08:00')
+    Util.isDataAnterior('2022-03-02 08:00', '02.03.2022 08:00')
   ).toBeTruthy();
 });
 

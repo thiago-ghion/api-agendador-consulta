@@ -1,6 +1,6 @@
 const gerarRes = (objetoRetorno) => {
   return {
-    status: () => {
+    status: (http) => {
       return {
         send: (resposta) => {
           if (
@@ -8,6 +8,7 @@ const gerarRes = (objetoRetorno) => {
             objetoRetorno.setResposta !== undefined
           ) {
             objetoRetorno.setResposta(resposta);
+            objetoRetorno.setHttp(http);
           }
         },
       };
@@ -20,6 +21,7 @@ const gerarRes = (objetoRetorno) => {
 
 const gerarResposta = () => {
   let resposta;
+  let http;
 
   const setResposta = (_resposta) => {
     resposta = _resposta;
@@ -29,15 +31,26 @@ const gerarResposta = () => {
     return resposta;
   };
 
-  return { getResposta, setResposta };
+  const setHttp = (_http) => {
+    http = _http;
+  };
+
+  const getHttp = () => {
+    return http;
+  };
+  return { getResposta, setResposta, setHttp, getHttp };
 };
 
 const gerarApp = () => ({
   get: (url, funcao) => {
-    funcao({}, {});
+    try {
+      funcao({}, {});
+    } catch {}
   },
   post: (url, funcao) => {
-    funcao({}, {});
+    try {
+      funcao({}, {});
+    } catch {}
   },
 });
 

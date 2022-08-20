@@ -3,6 +3,7 @@ const db = require('.././models/index.js');
 const Util = require('.././util/Util.js');
 const _ = require('underscore');
 const logger = require('../util/logger');
+const moment = require('moment');
 
 const PROPRIO_PACIENTE = 1;
 const COLABORADOR = 2;
@@ -315,6 +316,18 @@ const cancelar = async (req, res) => {
   }
 };
 
+const podeCancelarConsulta = (
+  dataConsulta,
+  horario,
+  indicadorConsultaCancelada
+) => {
+  return moment(`${dataConsulta} ${horario}`, 'DD.MM.YYYY HH:mm').isSameOrAfter(
+    moment()
+  ) && indicadorConsultaCancelada === 'N'
+    ? 'S'
+    : 'N';
+};
+
 const listarConsulta = async (req, res) => {
   try {
     if (req.query.idPaciente === undefined) {
@@ -557,7 +570,8 @@ const listarConsultaTodasProfissional = async (req, res) => {
       AND    C."dataVinculo" BETWEEN '${Util.converterEmDataIso(
         req.query.dataInicio
       )}' 
-      AND  '${Util.converterEmDataIso(req.query.dataFim)}' 
+      AND  '${Util.converterEmDataIso(req.query.dataFim)}'
+      AND   C."indicadorConsultaCancelada" = 'N' 
       `,
       { type: db.sequelize.QueryTypes.SELECT }
     );
@@ -570,7 +584,11 @@ const listarConsultaTodasProfissional = async (req, res) => {
       dataConsulta: Util.formatarData(item.dataVinculo),
       idHorario: item.idHorario,
       horario: item.textoHorario,
-      indicadorPermissaoCancelar: item.indicadorConsultaCancelada,
+      indicadorPermissaoCancelar: podeCancelarConsulta(
+        Util.formatarData(item.dataVinculo),
+        item.textoHorario,
+        item.indicadorConsultaCancelada
+      ),
     }));
 
     res.send(resposta);
@@ -589,4 +607,5 @@ module.exports = {
   listarConsulta,
   listarConsultaTodasPaciente,
   listarConsultaTodasProfissional,
+  podeCancelarConsulta,
 };

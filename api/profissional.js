@@ -7,7 +7,7 @@ const moment = require('moment');
 
 const registrarMetodos = (app, incluirNivelAccesso) => {
   const listarVigenteURL = `/v1/${grupoApi}/listarVigente`;
-  incluirNivelAccesso(listarVigenteURL, 3);
+  incluirNivelAccesso(listarVigenteURL, 1);
   app.get(listarVigenteURL, (req, res) => {
     listarVigente(req, res);
   });
@@ -317,8 +317,6 @@ const listarConfiguracaoHorario = async (req, res) => {
 
 const listarConfiguracaoHorarioPeriodo = async (req, res) => {
   try {
-    console.log('req.query.idProfissional', req.query.idProfissional);
-
     if (req.query.idProfissional === undefined) {
       res.status(400).send({
         mensagem: 'Número do profissional não informado',
@@ -425,18 +423,21 @@ const validarProfissional = async (req, res, isAlteracao) => {
 
       let temErro = false;
       _(req.body.vinculoDataHorario).each((item) => {
-        if (item.data === null || !Util.isDataValida(item.data)) {
+        if (item.data === undefined || !Util.isDataValida(item.data)) {
           temErro = true;
         }
-        if (item.listaHorario === null || item.listaHorario.length === 0) {
+        if (item.listaHorario === undefined || item.listaHorario.length === 0) {
           temErro = true;
         } else {
           _(item.listaHorario).each((itemHorario) => {
-            if (itemHorario.idHorario === null || itemHorario.idHorario === 0) {
+            if (
+              itemHorario.idHorario === undefined ||
+              itemHorario.idHorario === 0
+            ) {
               temErro = true;
             }
             if (
-              itemHorario.acao === null ||
+              itemHorario.acao === undefined ||
               (itemHorario.acao != 'A' && itemHorario.acao != 'D')
             ) {
               temErro = true;
@@ -526,6 +527,24 @@ const validarProfissional = async (req, res, isAlteracao) => {
                   case 'S':
                     if (itemHorario.acao === 'D') {
                       itemHorario.acaoSQL = 'A';
+
+                      const temConsulta = await db.sequelize.query(
+                        `
+                      SELECT 1
+                      FROM   "Consulta" B
+                      WHERE  B."idProfissional"              = ${req.params.idProfissional}
+                      AND    B."idHorario"                   = ${itemHorario.idHorario}
+                      AND    B."indicadorConsultaCancelada"  = 'N'
+                      FETCH FIRST ROW ONLY 
+                      `,
+                        { type: db.sequelize.QueryTypes.SELECT }
+                      );
+
+                      if (temConsulta.length > 0) {
+                        reject(
+                          'Profissional possui consultas ativas, cancele a consulta antes de prosseguir'
+                        );
+                      }
                     }
                     break;
                   // Se vinculo inativo e acao ativar, atualizar vinculo, caso contrário descartar
@@ -533,8 +552,6 @@ const validarProfissional = async (req, res, isAlteracao) => {
                     if (itemHorario.acao === 'A') {
                       itemHorario.acaoSQL = 'A';
                     }
-                    break;
-                  default:
                     break;
                 }
               }
@@ -544,7 +561,14 @@ const validarProfissional = async (req, res, isAlteracao) => {
         });
       });
 
-      await Promise.all(listaPromise);
+      try {
+        await Promise.all(listaPromise);
+      } catch (e) {
+        res.status(400).send({
+          mensagem: e,
+        });
+        return false;
+      }
     }
 
     return true;
@@ -590,7 +614,7 @@ const registrar = async (req, res) => {
 
       const listaPromise = [];
 
-      if (req.body.vinculoDataHorario !== null) {
+      if (req.body.vinculoDataHorario !== undefined) {
         _(req.body.vinculoDataHorario).each((itemVinculo) => {
           _(itemVinculo.listaHorario).each((itemHorario) => {
             listaPromise.push(
@@ -622,19 +646,12 @@ const alterar = async (req, res) => {
   try {
     const isValido = await validarProfissional(req, res, true);
 
-    //TODO: VINCULO DO HORARIO NÃO PODE SER DESATIVADO SE HOUVER CONSULTA ATIVA
-    
     if (isValido) {
       const profissional = await db.Profissional.findOne({
         where: {
           idProfissional: req.params.idProfissional,
         },
       });
-
-      if (profissional === null) {
-        res.status(400).send({ mensagem: 'Profissional não encontrado' });
-        return false;
-      }
 
       await db.sequelize.transaction(async (t) => {
         await profissional.update(
@@ -695,7 +712,9 @@ const alterar = async (req, res) => {
       res.send(resposta);
     }
   } catch (err) {
-    res.status(400).send({ mensagem: 'Falha na alteração do profissional' });
+    res
+      .status(400)
+      .send({ mensagem: 'Falha na alteração do profissional', err });
   }
 };
 
@@ -705,11 +724,11 @@ const habilitacao = async (
   req,
   res
 ) => {
-  if (req.params.idProfissional === null) {
+  if (req.params.idProfissional === undefined) {
     res.status(400).send({
       mensagem: 'Número do profissional não foi informado',
     });
-    return false;
+    return;
   }
 
   try {
@@ -721,18 +740,36 @@ const habilitacao = async (
       res.status(400).send({
         mensagem: 'Profissional não foi encontrado',
       });
-      return false;
+      return;
     }
 
     if (profissional.indicadorAtivo === situacaoAtivacao) {
       res.status(400).send({
         mensagem: mensagemErroAtivacao,
       });
-      return false;
+      return;
     }
 
-    /// TODO: INCLUIR VALIDACAO, CASO SEJA DESATIVACAO
-    /// NAO PODE TER CONSULTAS ATIVAS
+    if (situacaoAtivacao === 'N') {
+      const temConsulta = await db.sequelize.query(
+        `
+      SELECT 1
+      FROM   "Consulta" B
+      WHERE  B."idProfissional"              = ${req.params.idProfissional}
+      AND    B."indicadorConsultaCancelada"  = 'N'
+      FETCH FIRST ROW ONLY 
+      `,
+        { type: db.sequelize.QueryTypes.SELECT }
+      );
+
+      if (temConsulta.length > 0) {
+        res.status(400).send({
+          mensagem:
+            'Profissional possui consultas ativas, cancele a consulta antes de prosseguir@',
+        });
+        return;
+      }
+    }
 
     await db.sequelize.transaction(async (t) => {
       await profissional.update(
@@ -764,11 +801,11 @@ const habilitacao = async (
 };
 
 const ativar = async (req, res) => {
-  habilitacao('S', 'Profissional já está ativo', req, res);
+  await habilitacao('S', 'Profissional já está ativo', req, res);
 };
 
-const desativar = (req, res) => {
-  habilitacao('N', 'Profissional já está desativado', req, res);
+const desativar = async (req, res) => {
+  await habilitacao('N', 'Profissional já está desativado', req, res);
 };
 
 const consultarVinculo = async (req, res) => {
@@ -777,18 +814,21 @@ const consultarVinculo = async (req, res) => {
       res.status(400).send({
         mensagem: 'Número do profissional não informado',
       });
+      return;
     }
 
     if (req.query.dataPesquisa === undefined) {
       res.status(400).send({
         mensagem: 'Data de pesquisa não informada',
       });
+      return;
     }
 
     if (!Util.isDataValida(req.query.dataPesquisa)) {
       res.status(400).send({
         mensagem: 'Data de pesquisa com formato inválido',
       });
+      return;
     }
 
     const lista = await db.sequelize.query(
@@ -821,4 +861,18 @@ const consultarVinculo = async (req, res) => {
   }
 };
 
-module.exports = { registrarMetodos };
+module.exports = {
+  registrarMetodos,
+  listarVigente,
+  listarTodos,
+  listarDataDisponivel,
+  listarHorarioDisponivel,
+  listarConfiguracaoHorario,
+  listarConfiguracaoHorarioPeriodo,
+  validarProfissional,
+  registrar,
+  alterar,
+  ativar,
+  desativar,
+  consultarVinculo,
+};

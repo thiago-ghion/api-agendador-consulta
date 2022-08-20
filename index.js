@@ -23,12 +23,18 @@ const estatistica = require('./api/estatistica');
 
 app.use(express.json());
 app.use(cors());
-app.get('/', function (req, res) {
+
+const serverEstatico = (req, res) => {
   res.sendFile('index.html', { root: __dirname + '/' });
+};
+
+app.get('/', function (req, res) {
+  serverEstatico(req, res);
 });
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.use(function (req, res, next) {
+const filtroSegurancao = (req, res, next) => {
   if (
     req.url.match('seguranca') ||
     req.url.match('api-docs') ||
@@ -64,7 +70,9 @@ app.use(function (req, res, next) {
       }
     })(req, res);
   }
-});
+};
+
+app.use(filtroSegurancao);
 
 const listaAcesso = [];
 
@@ -95,3 +103,7 @@ estatistica.registrarMetodos(app, incluirNivelAcesso);
 logger.info('Estatistica - OK');
 
 app.listen(port, () => {});
+
+exports.incluirNivelAcesso = incluirNivelAcesso;
+exports.listaAcesso = listaAcesso;
+exports.filtroSegurancao = filtroSegurancao;
