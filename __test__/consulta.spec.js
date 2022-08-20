@@ -1472,7 +1472,7 @@ describe('podeCancelarConsulta', () => {
   test('Data consulta inferior a data atual, consulta não cancelada', () => {
     const consulta = require('../api/consulta.js');
 
-    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');;
+    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');
     const horario = '08:00';
     const indicadorConsultaCancelada = 'N';
 
@@ -1488,7 +1488,7 @@ describe('podeCancelarConsulta', () => {
   test('Data consulta inferior a data atual, consulta cancelada', () => {
     const consulta = require('../api/consulta.js');
 
-    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');;
+    const dataConsulta = moment().subtract(1, 'day').format('DD.MM.YYYY');
     const horario = '08:00';
     const indicadorConsultaCancelada = 'N';
 
@@ -1508,11 +1508,6 @@ describe('podeCancelarConsulta', () => {
     const horario = '08:00';
     const indicadorConsultaCancelada = 'N';
 
-    console.log('dataConsulta', dataConsulta);
-    console.log('horario', horario);
-    console.log('indicadorConsultaCancelada', indicadorConsultaCancelada);
-
-
     expect(
       consulta.podeCancelarConsulta(
         dataConsulta,
@@ -1529,11 +1524,6 @@ describe('podeCancelarConsulta', () => {
     const horario = '08:00';
     const indicadorConsultaCancelada = 'S';
 
-    console.log('dataConsulta', dataConsulta);
-    console.log('horario', horario);
-    console.log('indicadorConsultaCancelada', indicadorConsultaCancelada);
-
-
     expect(
       consulta.podeCancelarConsulta(
         dataConsulta,
@@ -1542,5 +1532,4 @@ describe('podeCancelarConsulta', () => {
       )
     ).toBe('N');
   });
-
 });

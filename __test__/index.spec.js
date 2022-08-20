@@ -34,7 +34,6 @@ jest.mock('passport', () => {
   return {
     use: jest.fn(),
     authenticate: (tipo, parametros, funcao) => {
-      console.log('auth');
       return mockPadrao(tipo, parametros, funcao);
     },
   };

@@ -7,6 +7,9 @@
     "*.spec.js"
   ],
   "jest": {
+    "setupFiles": [
+      "<rootDir>/jest/index.js"
+    ],
     "coveragePathIgnorePatterns": [
       "<rootDir>/__test__/"
     ]
