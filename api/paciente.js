@@ -315,7 +315,7 @@ const alterar = async (req, res) => {
           enderecoEmail: Util.formatarMinusculo(req.body.enderecoEmail),
         },
       });
-      if (paciente !== null) {
+      if (paciente !== null && `${paciente.idPaciente}` !== `${req.params.idPaciente}`) {
         res.status(400).send({
           mensagem: 'Email informado já está registrado para outro paciente',
           campo: 5,

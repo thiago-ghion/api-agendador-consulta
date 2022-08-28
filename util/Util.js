@@ -45,8 +45,11 @@ const calculoDigito = (multiplicador, tamanho, array_cpf) => {
   for (let i = 0; i <= tamanho; i++) {
     soma += array_cpf[i] * multiplicador--;
   }
-
-  return 11 - (soma % 11);
+  let digito = 11 - (soma % 11);
+  if (digito === 10 || digito === 11) {
+    digito = 0;
+  }
+  return digito;
 };
 
 const isCPFValido = (cpf) => {
@@ -60,11 +63,14 @@ const isCPFValido = (cpf) => {
   const array_cpf = texto_cpf.split('');
 
   const primeiroDigito = calculoDigito(10, 8, array_cpf);
+  console.log('primeiro digito', primeiroDigito);
   if (array_cpf[9] !== `${primeiroDigito}`) {
     return false;
   }
 
   const segundoDigito = calculoDigito(11, 9, array_cpf);
+  console.log('segundo digito', segundoDigito);
+
   if (array_cpf[10] !== `${segundoDigito}`) {
     return false;
   }

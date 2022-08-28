@@ -246,6 +246,7 @@ const listarHorarioDisponivel = async (req, res) => {
              AND   A."idHorario"                  = B."idHorario" 
              AND   A."dataVinculo"                = B."dataVinculo" 
              AND   B."indicadorConsultaCancelada" = 'N')
+      ORDER BY 2
     `,
       { type: db.sequelize.QueryTypes.SELECT }
     );
@@ -765,7 +766,7 @@ const habilitacao = async (
       if (temConsulta.length > 0) {
         res.status(400).send({
           mensagem:
-            'Profissional possui consultas ativas, cancele a consulta antes de prosseguir@',
+            'Profissional possui consultas ativas, cancele a consulta antes de prosseguir',
         });
         return;
       }
