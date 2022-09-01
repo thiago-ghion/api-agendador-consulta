@@ -9,9 +9,9 @@
   },
   "production": {
     "username": "thiagoghion",
-    "password": null,
+    "password": "password",
     "database": "desenvolvimento",
-    "host": "127.0.0.1",
+    "host": "localhost",
     "dialect": "postgres",
     "operatorsAliases": 0,
     "use_env_variable": "DATABASE_URL"
