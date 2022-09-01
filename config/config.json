@@ -8,12 +8,6 @@
     "operatorsAliases": 0
   },
   "production": {
-    "username": "thiagoghion",
-    "password": "password",
-    "database": "desenvolvimento",
-    "host": "localhost",
-    "dialect": "postgres",
-    "operatorsAliases": 0,
     "use_env_variable": "DATABASE_URL"
   }
 }
