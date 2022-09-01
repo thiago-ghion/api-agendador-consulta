@@ -4,7 +4,7 @@ const db = require('.././models/index.js');
 const logger = require('../util/logger');
 const Util = require('../util/Util');
 
-const SECRET = '38DNDJBB#@3JNEJNDJ3ECDL3dekwJI8hl@#';
+const SECRET = Buffer.from(process.env.JWT_KEY, 'base64');
 const TEMPO_EXPIRACAO = 3000;
 const TIPO_ACESSO_PACIENTE_INTERNO = 1;
 const TIPO_ACESSO_PACIENTE_EXTERNO = 2;

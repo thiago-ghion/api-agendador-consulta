@@ -171,11 +171,13 @@ const listarDataDisponivel = async (req, res) => {
 
     const listaData = await db.sequelize.query(
       `
-         SELECT DISTINCT "dataVinculo"  
-         FROM  "VinculoProfissionalHorario" A
+         SELECT A."dataVinculo", H."idHorario", H."textoHorario" 
+         FROM  "VinculoProfissionalHorario" A,
+              "Horario" H
          WHERE  A."idProfissional"  = ${req.query.idProfissional}
          AND    A."indicadorAtivo"  = 'S'
          AND    A."dataVinculo" BETWEEN '${dataInicio}' AND '${dataFim}' 
+         AND    H."idHorario"       =  A."idHorario"
          AND NOT EXISTS 
               (SELECT 1 
                FROM "Consulta" B 
@@ -187,8 +189,19 @@ const listarDataDisponivel = async (req, res) => {
       { type: db.sequelize.QueryTypes.SELECT }
     );
 
-    const resposta = _(listaData).map((item) => ({
-      data: Util.formatarData(item.dataVinculo),
+    const dataAtual = moment();
+    const filtro = _(listaData).filter((item) => {
+      const horarioDisponivel = moment(
+        `${item.dataVinculo} ${item.textoHorario}:00`,
+        'YYYY-MM-DD HH.mm.ss'
+      );
+      return horarioDisponivel.isSameOrAfter(dataAtual);
+    });
+
+    const grupo = _(filtro).groupBy((item) => '#' + item.dataVinculo + '#');
+
+    const resposta = _(grupo).map((item) => ({
+      data: Util.formatarData(item[0].dataVinculo),
     }));
 
     res.send(resposta);
@@ -251,7 +264,15 @@ const listarHorarioDisponivel = async (req, res) => {
       { type: db.sequelize.QueryTypes.SELECT }
     );
 
-    const resposta = _(listaData).map((item) => ({
+    const dataAtual = moment();
+    const filtro = _(listaData).filter((item) => {
+      const horarioDisponivel = moment(
+        `${req.query.dataPesquisa} ${item.textoHorario}:00`,
+        'DD.MM.YYYY HH.mm.ss'
+      );
+      return horarioDisponivel.isSameOrAfter(dataAtual);
+    });
+    const resposta = _(filtro).map((item) => ({
       idHorario: item.idHorario,
       horario: item.textoHorario,
     }));
@@ -353,6 +374,13 @@ const listarConfiguracaoHorarioPeriodo = async (req, res) => {
       res.status(400).send({
         mensagem: 'Data fim de pesquisa com formato inválido',
         campo: 2,
+      });
+      return;
+    }
+
+    if (Util.quantidadeDias(req.query.dataInicio, req.query.dataFim) > 60) {
+      res.status(400).send({
+        mensagem: 'Intervalo superior a 60 dias corridos',
       });
       return;
     }

@@ -63,14 +63,11 @@ const isCPFValido = (cpf) => {
   const array_cpf = texto_cpf.split('');
 
   const primeiroDigito = calculoDigito(10, 8, array_cpf);
-  console.log('primeiro digito', primeiroDigito);
   if (array_cpf[9] !== `${primeiroDigito}`) {
     return false;
   }
 
   const segundoDigito = calculoDigito(11, 9, array_cpf);
-  console.log('segundo digito', segundoDigito);
-
   if (array_cpf[10] !== `${segundoDigito}`) {
     return false;
   }

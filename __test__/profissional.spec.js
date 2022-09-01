@@ -1,4 +1,6 @@
 const apoioTeste = require('./apoioTeste');
+const moment = require('moment');
+
 let mockListaColaborador = null;
 let mockColaborador = null;
 let mockListaProfissional = null;
@@ -255,16 +257,23 @@ describe('listarDataDisponivel', () => {
   test('Lista com sucesso', async () => {
     const profissional = require('../api/profissional.js');
 
+    const dataAtual = moment();
+
     mockProfissional = {};
     mockQuery = new Promise((resolve) => {
-      resolve([{ dataVinculo: '2022-05-02' }]);
+      resolve([
+        {
+          dataVinculo: dataAtual.format('YYYY-MM-DD'),
+          textoHorario: dataAtual.add(1, 'hour').format('HH:mm'),
+        },
+      ]);
     });
 
     const req = {
       query: {
         idProfissional: 1,
-        dataInicio: '02.05.2022',
-        dataFim: '02.05.2022',
+        dataInicio: dataAtual.format('DD.MM.YYYY'),
+        dataFim: dataAtual.format('DD.MM.YYYY'),
       },
     };
     const resposta = apoioTeste.gerarResposta();
@@ -336,15 +345,22 @@ describe('listarHorarioDisponivel', () => {
   test('Lista com sucesso', async () => {
     const profissional = require('../api/profissional.js');
 
+    const dataAtual = moment();
+
     mockProfissional = {};
     mockQuery = new Promise((resolve) => {
-      resolve([{ idHorario: '1', textoHorario: '08:00' }]);
+      resolve([
+        {
+          idHorario: '1',
+          textoHorario: dataAtual.add(1, 'hour').format('HH:mm'),
+        },
+      ]);
     });
 
     const req = {
       query: {
         idProfissional: 1,
-        dataPesquisa: '02.05.2022',
+        dataPesquisa: dataAtual.format('DD.MM.YYYY'),
       },
     };
     const resposta = apoioTeste.gerarResposta();
@@ -481,6 +497,32 @@ describe('listarConfiguracaoHorarioPeriodo', () => {
 
     const req = {
       query: { idProfissional: 1, dataInicio: '02.05.2022', dataFim: 'aaaaa' },
+    };
+    const resposta = apoioTeste.gerarResposta();
+    const res = apoioTeste.gerarRes(resposta);
+    jest.spyOn(res, 'status');
+
+    await profissional.listarConfiguracaoHorarioPeriodo(req, res);
+
+    expect(res.status).toHaveBeenLastCalledWith(400);
+  });
+
+  test('Intervalo superior a 60 dias', async () => {
+    const profissional = require('../api/profissional.js');
+
+    mockProfissional = {};
+    mockQuery = new Promise((resolve) => {
+      resolve([
+        { dataVinculo: '2022-05-02', idHorario: '1', textoHorario: '08:00' },
+      ]);
+    });
+
+    const req = {
+      query: {
+        idProfissional: 1,
+        dataInicio: '02.05.2022',
+        dataFim: '02.12.2022',
+      },
     };
     const resposta = apoioTeste.gerarResposta();
     const res = apoioTeste.gerarRes(resposta);
@@ -1301,19 +1343,31 @@ describe('consultarVinculo', () => {
   test('Lista com sucesso', async () => {
     const profissional = require('../api/profissional.js');
 
+    const dataAtual = moment();
+
     const resposta = apoioTeste.gerarResposta();
     const res = apoioTeste.gerarRes(resposta);
     jest.spyOn(res, 'status');
 
     mockQuery = new Promise((resolve) => {
-      resolve([{ idHorario: 1, textoHorario: '08:00', indicadorAtivo: 'S' }]);
+      resolve([
+        {
+          idHorario: 1,
+          textoHorario: dataAtual.add(1, 'hour').format('HH:mm'),
+          indicadorAtivo: 'S',
+        },
+      ]);
     });
 
     await profissional.consultarVinculo(
-      { query: { idProfissional: 1, dataPesquisa: '02.02.2022' } },
+      {
+        query: {
+          idProfissional: 1,
+          dataPesquisa: dataAtual.format('DD.MM.YYYY'),
+        },
+      },
       res
     );
-
     expect(resposta.getResposta().length).toBe(1);
   });
 });

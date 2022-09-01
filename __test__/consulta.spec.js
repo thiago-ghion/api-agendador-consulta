@@ -21,16 +21,25 @@ jest.mock('../models/index.js', () => ({
       return funcao();
     },
     literal: () => '',
-    query: () => mockListaPaciente,
+    query: (sql, param) => {
+      if (typeof mockListaPaciente === 'function') {
+        return mockListaPaciente(sql, param);
+      }
+      return mockListaPaciente;
+    },
     QueryTypes: {
       SELECT: 1,
+      UPDATE: 2,
     },
   },
   Paciente: {
     findAll: () => {
       return mockListaPaciente;
     },
-    findOne: () => {
+    findOne: (dados) => {
+      if (typeof mockPaciente === 'function') {
+        return mockPaciente(dados);
+      }
       return mockPaciente;
     },
     create: () => {
@@ -1252,6 +1261,7 @@ test('Agendamento da consulta - próprio paciente - horário não utilizado por 
 
 test('Agendamento da consulta - próprio paciente - horário já utilizado por ele anteriormente', async () => {
   const consulta = require('../api/consulta.js');
+  const dataAtual = moment();
 
   mockPaciente = new Promise((resolve, reject) => {
     resolve({});
@@ -1262,7 +1272,11 @@ test('Agendamento da consulta - próprio paciente - horário já utilizado por e
   });
 
   mockHorario = new Promise((resolve, reject) => {
-    resolve({ textoHorario: '08:30' });
+    resolve({ textoHorario: dataAtual.add(1, 'hour').format('HH:mm') });
+  });
+
+  mockConsulta = new Promise((resolve) => {
+    resolve({});
   });
 
   mockConsultaIndicador = new Promise((resolve, reject) => {
@@ -1273,10 +1287,18 @@ test('Agendamento da consulta - próprio paciente - horário já utilizado por e
     resolve({});
   });
 
-  objetoConsulta = { update: jest.fn() };
-  mockConsulta = new Promise((resolve) => {
-    resolve(objetoConsulta);
-  });
+  //objetoConsulta = { update: jest.fn() };
+  //mockListaPaciente = new Promise((resolve) => {
+  //  resolve(objetoConsulta);
+  //});
+
+  const objetoQuery = {};
+
+  mockListaPaciente = async (sql, params) =>
+    new Promise((r) => {
+      objetoQuery.params = params;
+      r({});
+    });
 
   const req = {
     token: {
@@ -1286,7 +1308,7 @@ test('Agendamento da consulta - próprio paciente - horário já utilizado por e
     body: {
       idPaciente: 1,
       idProfissional: 1,
-      dataConsulta: '02.05.2022',
+      dataConsulta: dataAtual.format('DD.MM.YYYY'),
       idHorario: 1,
     },
   };
@@ -1297,7 +1319,9 @@ test('Agendamento da consulta - próprio paciente - horário já utilizado por e
   await consulta.agendar(req, res);
 
   expect(mockConsultaCreate).not.toHaveBeenCalled();
-  expect(objetoConsulta.update).toHaveBeenCalled();
+  expect(
+    objetoQuery.params.type === db.sequelize.QueryTypes.UPDATE
+  ).toBeTruthy();
   expect(res.status).toHaveBeenLastCalledWith(201);
 });
 

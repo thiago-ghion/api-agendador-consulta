@@ -104,8 +104,6 @@ const validacaoPayloadConsulta = async (req, res) => {
 };
 
 const agendar = async (req, res) => {
-  //TODO: Paciente somente pode usar o seu próprio ID
-  //      Incluir validacao data de agendamento >= hoje
   try {
     const isValido = await validacaoPayloadConsulta(req, res);
 
@@ -166,7 +164,7 @@ const agendar = async (req, res) => {
 
     await db.sequelize.transaction(async (t) => {
       let acaoAgendamento;
-
+      
       if (consultaPaciente === null) {
         acaoAgendamento = 'I';
         await db.Consulta.create(
@@ -183,13 +181,21 @@ const agendar = async (req, res) => {
         );
       } else {
         acaoAgendamento = 'A';
-        await consultaPaciente.update(
-          {
-            indicadorConsultaCancelada: 'N',
-            idColaborador: colaborador,
-            tipoOrigemConsulta: tipoOrigemConsulta,
-          },
-          { transaction: t }
+        await db.sequelize.query(
+          `
+          UPDATE "Consulta"
+          SET
+                 "indicadorConsultaCancelada" = 'N'
+          ,      "idColaborador"              = ${colaborador}
+          ,      "tipoOrigemConsulta"         = ${tipoOrigemConsulta}
+          ,      "idPaciente"                 = ${req.body.idPaciente}
+          WHERE  "idProfissional"             = ${req.body.idProfissional}
+          AND    "idHorario"                  = ${req.body.idHorario}
+          AND    "dataVinculo"                = '${Util.converterEmDataIso(
+            req.body.dataConsulta
+          )}'
+          `,
+          { type: db.sequelize.QueryTypes.UPDATE, transaction: t }
         );
       }
 
