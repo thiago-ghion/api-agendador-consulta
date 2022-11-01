@@ -23,6 +23,7 @@ const estatistica = require('./api/estatistica');
 
 app.use(express.json());
 app.use(cors());
+app.use(express.urlencoded());
 
 const serverEstatico = (req, res) => {
   res.sendFile('index.html', { root: __dirname + '/' });
@@ -34,12 +35,14 @@ app.get('/', function (req, res) {
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-const filtroSegurancao = (req, res, next) => {
+const filtroSeguranca = (req, res, next) => {
+  console.log('filtroSeguranca')
   if (
     req.url.match('seguranca') ||
     req.url.match('api-docs') ||
     req.url.match('introspect') ||
-    req.method === 'OPTIONS'
+    req.method === 'OPTIONS' ||
+    req.url.match('paciente/cadastrar')
   ) {
     next();
   } else {
@@ -72,7 +75,7 @@ const filtroSegurancao = (req, res, next) => {
   }
 };
 
-app.use(filtroSegurancao);
+app.use(filtroSeguranca);
 
 const listaAcesso = [];
 
@@ -106,4 +109,4 @@ app.listen(port, () => {});
 
 exports.incluirNivelAcesso = incluirNivelAcesso;
 exports.listaAcesso = listaAcesso;
-exports.filtroSegurancao = filtroSegurancao;
+exports.filtroSeguranca = filtroSeguranca;

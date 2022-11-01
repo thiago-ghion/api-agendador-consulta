@@ -485,10 +485,12 @@ const listarConsultaTodasPaciente = async (req, res) => {
             "Horario" H 
       WHERE  C."idProfissional" = P."idProfissional" 
       AND    H."idHorario" = C."idHorario"
+      AND    C."idPaciente" = '${req.query.idPaciente}' 
       AND    C."dataVinculo" BETWEEN '${Util.converterEmDataIso(
         req.query.dataInicio
       )}' 
       AND  '${Util.converterEmDataIso(req.query.dataFim)}' 
+      AND   C."indicadorConsultaCancelada" = 'N' 
       `,
       { type: db.sequelize.QueryTypes.SELECT }
     );
@@ -499,7 +501,11 @@ const listarConsultaTodasPaciente = async (req, res) => {
       dataConsulta: Util.formatarData(item.dataVinculo),
       idHorario: item.idHorario,
       horario: item.textoHorario,
-      indicadorPermissaoCancelar: item.indicadorConsultaCancelada,
+      indicadorPermissaoCancelar: podeCancelarConsulta(
+        Util.formatarData(item.dataVinculo),
+        item.textoHorario,
+        item.indicadorConsultaCancelada
+      ),
     }));
 
     res.send(resposta);
