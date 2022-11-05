@@ -441,6 +441,8 @@ describe('registrar', () => {
         dataNascimento: '02.02.2020',
         numeroTelefone: '1112345678',
         enderecoEmail: 'teste@teste.com',
+        senha: 'AAbbb12#',
+        senhaRepetida: 'AAbbb12#',
       },
     };
 

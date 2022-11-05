@@ -19,13 +19,13 @@ const registrarMetodos = (app, incluirNivelAccesso) => {
   });
 
   const listarDataDisponivelURL = `/v1/${grupoApi}/listarDataDisponivel`;
-  incluirNivelAccesso(listarDataDisponivelURL, 3);
+  incluirNivelAccesso(listarDataDisponivelURL, 1);
   app.get(listarDataDisponivelURL, (req, res) => {
     listarDataDisponivel(req, res);
   });
 
   const listarHorarioDisponivelURL = `/v1/${grupoApi}/listarHorarioDisponivel`;
-  incluirNivelAccesso(listarHorarioDisponivelURL, 3);
+  incluirNivelAccesso(listarHorarioDisponivelURL, 1);
   app.get(listarHorarioDisponivelURL, (req, res) => {
     listarHorarioDisponivel(req, res);
   });

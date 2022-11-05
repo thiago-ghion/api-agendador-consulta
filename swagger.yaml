@@ -8,7 +8,7 @@ servers:
     description: Ambiente de execução local
   - url: https://mock-agendador-consulta.herokuapp.com/
     description: Ambiente de mock deployado  
-  - url: https://api-agendador-consulta.herokuapp.com//
+  - url: https://api-agendador-consulta.herokuapp.com/
     description: Produção          
 paths:
   /v1/seguranca/login:

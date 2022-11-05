@@ -30,6 +30,13 @@ const registrarMetodos = (app, incluirNivelAccesso) => {
     registrar(req, res);
   });
 
+  const cadastrarURL = `/v1/${grupoApi}/cadastrar`;
+  incluirNivelAccesso(registrarURL, 1);
+  app.post(cadastrarURL, (req, res) => {
+    req.token = { nivelUsuario: 1 };
+    registrar(req, res);
+  });
+
   const alterarURL = `/v1/${grupoApi}/alterar/:idPaciente`;
   incluirNivelAccesso(alterarURL, 2);
   app.post(alterarURL, (req, res) => {
@@ -115,6 +122,8 @@ const validarPaciente = (req, res) => {
     const isColaborador =
       req.token.nivelUsuario === 2 || req.token.nivelUsuario === 3;
 
+    const isOauth = req.token.nivelUsuario === 0;
+
     if (req.body.nomePaciente === undefined) {
       res
         .status(400)
@@ -198,6 +207,47 @@ const validarPaciente = (req, res) => {
         .send({ mensagem: 'Email do paciente inválido', campo: 5 });
       return false;
     }
+
+    if (
+      !isOauth &&
+      !isColaborador &&
+      (req.body.senha === undefined || req.body.senha === '')
+    ) {
+      res.status(400).send({ mensagem: 'Senha não informada', campo: 6 });
+      return false;
+    }
+
+    if (!isOauth && !isColaborador && !Util.isSenhaValida(req.body.senha)) {
+      res.status(400).send({
+        mensagem:
+          'Senha do usuário deve conter 2 letras maiúsculas, 3 minúsculas, 2 números e 1 símbolo especial',
+        campo: 6,
+      });
+      return false;
+    }
+
+    if (
+      !isOauth &&
+      !isColaborador &&
+      (req.body.senhaRepetida === undefined || req.body.senhaRepetida === '')
+    ) {
+      res
+        .status(400)
+        .send({ mensagem: 'Repetição da senha não informada', campo: 7 });
+      return false;
+    }
+
+    if (
+      !isOauth &&
+      !isColaborador &&
+      req.body.senha !== req.body.senhaRepetida
+    ) {
+      res.status(400).send({
+        mensagem: 'Repetição da senha divergente da senha informada',
+        campo: 7,
+      });
+      return false;
+    }
   } catch (error) {
     res
       .status(400)
@@ -209,6 +259,7 @@ const validarPaciente = (req, res) => {
 };
 
 const registrar = async (req, res) => {
+  let paciente;
   try {
     if (!validarPaciente(req, res)) {
       return false;
@@ -225,12 +276,12 @@ const registrar = async (req, res) => {
           mensagem: 'Email informado já está registrado para outro paciente',
           campo: 5,
         });
-        return;
+        return false;
       }
     }
 
     await db.sequelize.transaction(async (t) => {
-      const paciente = await db.Paciente.create(
+      paciente = await db.Paciente.create(
         {
           nomePaciente: req.body.nomePaciente,
           numeroCPF:
@@ -247,7 +298,8 @@ const registrar = async (req, res) => {
             req.body.enderecoEmail !== undefined
               ? Util.formatarMinusculo(req.body.enderecoEmail)
               : null,
-          tipoOrigemCadastro: 1,
+          textoSenha: req.body.senha !== undefined ? req.body.senha : null,
+          tipoOrigemCadastro: req.token.nivelUsuario === 1 ? 2 : 1,
         },
         { transaction: t }
       );
@@ -263,6 +315,7 @@ const registrar = async (req, res) => {
           dataNascimento: paciente.dataNascimento,
           numeroTelefone: paciente.numeroTelefone,
           enderecoEmail: Util.formatarMinusculo(paciente.enderecoEmail),
+          textoSenha: paciente.senha,
           tipoOrigemCadastro: paciente.tipoOrigemCadastro,
         },
         { transaction: t }
@@ -280,11 +333,15 @@ const registrar = async (req, res) => {
         enderecoEmail: paciente.enderecoEmail,
       };
 
-      res.status(201).send(resposta);
+      if (req.token.nivelUsuario !== 0) {
+        res.status(201).send(resposta);
+      }
     });
   } catch (error) {
     res.status(400).send({ mensagem: 'Falha no registro do paciente' });
+    return false;
   }
+  return paciente;
 };
 
 const alterar = async (req, res) => {
@@ -315,7 +372,10 @@ const alterar = async (req, res) => {
           enderecoEmail: Util.formatarMinusculo(req.body.enderecoEmail),
         },
       });
-      if (paciente !== null && `${paciente.idPaciente}` !== `${req.params.idPaciente}`) {
+      if (
+        paciente !== null &&
+        `${paciente.idPaciente}` !== `${req.params.idPaciente}`
+      ) {
         res.status(400).send({
           mensagem: 'Email informado já está registrado para outro paciente',
           campo: 5,
